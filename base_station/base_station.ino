@@ -1,36 +1,11 @@
-//----------------------------------------------------------------------------------------------------------------------
-// Requires Arduino IDE with arduino-tiny core: http://code.google.com/p/arduino-tiny/
-//----------------------------------------------------------------------------------------------------------------------
-
 /*
 - forwards rfm12b data to serial (source-payload-payload-payload-payload)
 - forwards serial data to rfm12b (dest-payload-payload-payload-payload)
 	- if dest = base, payloads are internal commands
-
-                     +-\/-+
-               VCC  1|    |14  GND
-          (D0) PB0  2|    |13  AREF (D10)
-          (D1) PB1  3|    |12  PA1 (D9)
-             RESET  4|    |11  PA2 (D8)
-INT0  PWM (D2) PB2  5|    |10  PA3 (D7)
-      PWM (D3) PA7  6|    |9   PA4 (D6)
-      PWM (D4) PA6  7|    |8   PA5 (D5) PWM
-                     +----+
                      
 -----------------------------------------------------------------------------
  * Pin layout should be as follows:
  * Signal     Pin              Pin               Pin               Pin
- *            Arduino Uno      ATtiny84          Arduino Mega      
- * ----------------------------------------------------------------------
- * SPI                                                             MFRC522 board
- * ----------------------------------------------------------------------
- * Reset      variable         variable          variable          RST
- * SPI SS     variable         variable          variable          SDA
- * SPI MOSI   11               52                52                MOSI
- * SPI MISO   12               51                51                MISO
- * SPI SCK    13               50                50                SCK
- * GND       GND              GND               GND                GND
- * +3.3      VCC              VCC               VCC                3.3
  * ----------------------------------------------------------------------
  * SPI                                                             RFM12B
  * ----------------------------------------------------------------------
@@ -82,9 +57,6 @@ byte readyToSend;
  txPayload tx;
 
  int nodeID; //node ID of tx, extracted from RF datapacket. Not transmitted as part of structure
- 
- int rxLED = 7;
- int txLED = 4;
 
 byte byteRead;
 
@@ -106,20 +78,11 @@ void setup () {
   rf12_control(0xC040);
 //  Serial.println("RFM12 init done");
   
-  pinMode(rxLED, OUTPUT);
-  pinMode(txLED, OUTPUT);
-  digitalWrite(rxLED, LOW);
-  digitalWrite(txLED, LOW);
-  
-  blinkLED(rxLED, 3, 100);
-  blinkLED(txLED, 3, 100);
 }
 
 void loop() {
-// if (sendTimer.poll(100))
-//    readyToSend = 1;
+
  if (rf12_recvDone() && rf12_crc == 0 && (rf12_hdr & RF12_HDR_CTL) == 0) {
-   //digitalWrite(rxLED, HIGH);
   nodeID = rf12_hdr & 0x1F; // get node ID
   rx = *(rxPayload*) rf12_data;
   int sourcenode = rx.destnode;
@@ -132,7 +95,6 @@ void loop() {
  if (RF12_WANTS_ACK) { // Send ACK if requested
    rf12_sendStart(RF12_ACK_REPLY, 0, 0);
  }
-  //digitalWrite(rxLED, LOW);
   blinkLED(rxLED, 1, 1);
   
   Serial.print(nodeID);Serial.print("/");
@@ -146,7 +108,6 @@ void loop() {
     getSerial();
     destnode = serialdata;
     if (destnode == MYNODE) {
-//      blinkLED(rxLED, 3, 100);
       internal_cmd();
     }
     else {
@@ -166,9 +127,7 @@ void loop() {
   if (needToSend && rf12_canSend()) {
     needToSend = 0;
     readyToSend = 0;
-//    rf12_sendStart(0, &tx, sizeof tx);
     rf12_sendStart(destnode, &tx, sizeof tx);
-    blinkLED(txLED, 1, 1);
  }
 }
 
